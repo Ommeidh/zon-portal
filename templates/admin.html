@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block container_class %}wide{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>> ADMIN_CONTROL_PANEL</h1>
+    
+    <div class="stats">
+        <div class="stat">
+            <div class="stat-number">{{ pending_users|length }}</div>
+            <div class="stat-label">PENDING</div>
+        </div>
+        <div class="stat">
+            <div class="stat-number">{{ approved_users|length }}</div>
+            <div class="stat-label">APPROVED</div>
+        </div>
+        <div class="stat">
+            <div class="stat-number">{{ file_size or 'N/A' }}</div>
+            <div class="stat-label">FILE_SIZE</div>
+        </div>
+    </div>
+    
+    <!-- Game File Status -->
+    <h2>> SYSTEM_STATUS</h2>
+    <div class="file-info" style="text-align: left;">
+        <strong style="color: #008f11;">FILE:</strong> {{ game_file }}<br>
+        <strong style="color: #008f11;">STATUS:</strong> 
+        {% if file_exists %}
+            <span style="color: #00ff41;">● ONLINE ({{ file_size }})</span>
+        {% else %}
+            <span style="color: #ff0040;">● OFFLINE</span>
+        {% endif %}
+        <br>
+        <strong style="color: #008f11;">PATH:</strong> <code>downloads/{{ game_file }}</code>
+    </div>
+    
+    <!-- Pending Users -->
+    <h2>> PENDING_REQUESTS ({{ pending_users|length }})</h2>
+    {% if pending_users %}
+    <table>
+        <thead>
+            <tr>
+                <th>USERNAME</th>
+                <th>EMAIL</th>
+                <th>TIMESTAMP</th>
+                <th>ACTIONS</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in pending_users %}
+            <tr>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.created_at }}</td>
+                <td class="actions">
+                    <form method="POST" action="{{ url_for('approve_user', user_id=user.id) }}" style="display:inline;">
+                        <button type="submit" class="btn btn-success btn-small">[APPROVE]</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" style="display:inline;" 
+                          onsubmit="return confirm('DELETE USER?')">
+                        <button type="submit" class="btn btn-danger btn-small">[DELETE]</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color: #008f11;">// NO PENDING REQUESTS</p>
+    {% endif %}
+    
+    <!-- Approved Users -->
+    <h2 style="margin-top: 40px;">> AUTHORIZED_USERS ({{ approved_users|length }})</h2>
+    {% if approved_users %}
+    <table>
+        <thead>
+            <tr>
+                <th>USERNAME</th>
+                <th>EMAIL</th>
+                <th>TIMESTAMP</th>
+                <th>ACTIONS</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in approved_users %}
+            <tr>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.created_at }}</td>
+                <td class="actions">
+                    <form method="POST" action="{{ url_for('revoke_user', user_id=user.id) }}" style="display:inline;">
+                        <button type="submit" class="btn btn-secondary btn-small">[REVOKE]</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" style="display:inline;"
+                          onsubmit="return confirm('DELETE USER?')">
+                        <button type="submit" class="btn btn-danger btn-small">[DELETE]</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color: #008f11;">// NO AUTHORIZED USERS</p>
+    {% endif %}
+</div>
+{% endblock %}

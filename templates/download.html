@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Download{% endblock %}
+
+{% block content %}
+<div class="card" style="text-align: center;">
+    <h1>> DOWNLOAD_PORTAL</h1>
+    <p style="color: #008f11; margin-bottom: 20px;">
+        // ACCESS GRANTED: {{ session.username }}<br>
+        // CLEARANCE LEVEL: ALPHA TESTER
+    </p>
+    
+    {% if file_exists %}
+    <div class="file-info">
+        <div style="color: #008f11; margin-bottom: 5px;">FILE: {{ game_file }}</div>
+        <div class="file-size">{{ file_size }}</div>
+        <div style="color: #005f11; margin-top: 10px;">STATUS: READY</div>
+    </div>
+    
+    <a href="{{ url_for('download_file') }}" class="btn btn-primary download-btn">
+        [⬇ INITIATE_DOWNLOAD]
+    </a>
+    
+    <p style="color: #005f11; font-size: 0.85em; margin-top: 20px;">
+        // EXTRACT .ZIP AND EXECUTE GAME BINARY
+    </p>
+    {% else %}
+    <div class="file-info">
+        <div style="color: #ff0040;">ERROR: FILE_NOT_FOUND</div>
+        <p style="color: #008f11; margin-top: 10px;">
+            // DOWNLOAD PACKAGE BEING PREPARED<br>
+            // CHECK BACK SOON
+        </p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

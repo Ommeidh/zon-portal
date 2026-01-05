@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Admin Login{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>> ADMIN_ACCESS</h1>
+    <p style="color: #008f11; margin-bottom: 20px;">// RESTRICTED TERMINAL</p>
+    
+    <form method="POST">
+        <div class="form-group">
+            <label for="email">ADMIN_ID:</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">ACCESS_KEY:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">[AUTHENTICATE]</button>
+    </form>
+    
+    <div class="links">
+        <a href="{{ url_for('index') }}">[← RETURN_TO_MAIN]</a>
+    </div>
+</div>
+{% endblock %}

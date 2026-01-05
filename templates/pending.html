@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Pending Approval{% endblock %}
+
+{% block content %}
+<div class="card" style="text-align: center;">
+    <div class="pending-icon">⏳</div>
+    <h1>> AWAITING_AUTHORIZATION</h1>
+    <p style="color: #008f11; margin-bottom: 20px;">
+        // STATUS: PENDING ADMIN APPROVAL<br>
+        // ACCESS TO {{ game_name }} WILL BE GRANTED UPON VERIFICATION
+    </p>
+    <p style="color: #005f11; font-size: 0.9em;">
+        [ CHECK BACK LATER OR CONTACT ADMIN ]
+    </p>
+    
+    <div style="margin-top: 30px;">
+        <a href="{{ url_for('logout') }}" class="btn btn-secondary">[DISCONNECT]</a>
+    </div>
+</div>
+{% endblock %}

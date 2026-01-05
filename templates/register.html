@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Register{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>> CREATE_ACCOUNT</h1>
+    <p style="color: #008f11; margin-bottom: 20px;">
+        // REQUEST ACCESS TO DOWNLOAD PORTAL
+    </p>
+    
+    <form method="POST">
+        <div class="form-group">
+            <label for="email">EMAIL_ADDRESS:</label>
+            <input type="email" id="email" name="email" value="{{ email or '' }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="username">USERNAME:</label>
+            <input type="text" id="username" name="username" value="{{ username or '' }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">PASSWORD:</label>
+            <input type="password" id="password" name="password" required minlength="6">
+        </div>
+        
+        <div class="form-group">
+            <label for="confirm">CONFIRM_PASSWORD:</label>
+            <input type="password" id="confirm" name="confirm" required>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">[SUBMIT_REQUEST]</button>
+    </form>
+    
+    <div class="links">
+        <p style="color: #008f11;">Already registered? <a href="{{ url_for('login') }}">[LOGIN]</a></p>
+    </div>
+</div>
+{% endblock %}
