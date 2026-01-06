@@ -86,7 +86,6 @@ SITE_URL = os.environ.get('SITE_URL', 'https://zon-productions.com')
 
 # Discord bot config
 DISCORD_BOT_TOKEN = os.environ.get('DISCORD_BOT_TOKEN', '')
-DISCORD_CHANNEL_ID = os.environ.get('DISCORD_CHANNEL_ID', '')  # Channel ID for update announcements
 
 # Game info
 GAME_NAME = "NightShadow"
@@ -644,6 +643,27 @@ def delete_user(admin_path, user_id):
 
 discord_bot = None
 discord_bot_started = False
+DISCORD_CHANNELS_FILE = Path(__file__).parent / 'discord_channels.json'
+
+
+def load_discord_channels():
+    """Load configured channels from file."""
+    if DISCORD_CHANNELS_FILE.exists():
+        try:
+            import json
+            with open(DISCORD_CHANNELS_FILE) as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+
+def save_discord_channels(channels):
+    """Save configured channels to file."""
+    import json
+    with open(DISCORD_CHANNELS_FILE, 'w') as f:
+        json.dump(channels, f, indent=2)
+
 
 def get_file_mtime():
     """Get modification time of game file."""
@@ -675,9 +695,8 @@ def setup_discord_bot():
     
     # Re-read config in case it wasn't available at import time
     bot_token = os.environ.get('DISCORD_BOT_TOKEN', '')
-    channel_id = os.environ.get('DISCORD_CHANNEL_ID', '')
     
-    print(f"Discord setup - Token present: {bool(bot_token)}, Channel ID: {channel_id}")
+    print(f"Discord setup - Token present: {bool(bot_token)}")
     
     if not DISCORD_AVAILABLE:
         print("Discord bot disabled - discord.py not installed")
@@ -701,11 +720,11 @@ def setup_discord_bot():
     @bot.event
     async def on_ready():
         print(f"Discord bot connected as {bot.user}")
-        if channel_id:
-            check_for_updates.start()
-            print(f"Update checker started for channel {channel_id}")
-        else:
-            print("No DISCORD_CHANNEL_ID set - update notifications disabled")
+        print(f"Bot is in {len(bot.guilds)} server(s)")
+        check_for_updates.start()
+        
+        channels = load_discord_channels()
+        print(f"Update notifications configured for {len(channels)} server(s)")
     
     @tasks.loop(minutes=5)
     async def check_for_updates():
@@ -718,36 +737,42 @@ def setup_discord_bot():
             return
         
         if last_file_mtime is not None and current_mtime > last_file_mtime:
-            # File has been updated!
-            try:
-                ch_id = int(channel_id)
-                ch = bot.get_channel(ch_id)
-                
-                if ch:
-                    file_size = get_file_size_str()
-                    update_time = datetime.fromtimestamp(current_mtime).strftime('%Y-%m-%d %H:%M')
-                    
-                    embed = discord.Embed(
-                        title="🎮 NEW UPDATE AVAILABLE",
-                        description=f"**{GAME_NAME}** has been updated!",
-                        color=0x00ff41
-                    )
-                    embed.add_field(name="File", value=GAME_FILE, inline=True)
-                    embed.add_field(name="Size", value=file_size, inline=True)
-                    embed.add_field(name="Updated", value=update_time, inline=True)
-                    embed.add_field(
-                        name="Download",
-                        value=f"[Click here to download]({SITE_URL}/download)",
-                        inline=False
-                    )
-                    embed.set_footer(text=f"{COMPANY_NAME} // {GAME_NAME} Protocol")
-                    
-                    await ch.send(embed=embed)
-                    print(f"Sent update notification to channel {ch_id}")
-                else:
-                    print(f"Could not find channel {ch_id}")
-            except Exception as e:
-                print(f"Failed to send update notification: {e}")
+            # File has been updated - notify all configured channels
+            channels = load_discord_channels()
+            
+            if not channels:
+                print("No channels configured for updates")
+                last_file_mtime = current_mtime
+                return
+            
+            file_size = get_file_size_str()
+            update_time = datetime.fromtimestamp(current_mtime).strftime('%Y-%m-%d %H:%M')
+            
+            embed = discord.Embed(
+                title="🎮 NEW UPDATE AVAILABLE",
+                description=f"**{GAME_NAME}** has been updated!",
+                color=0x00ff41
+            )
+            embed.add_field(name="File", value=GAME_FILE, inline=True)
+            embed.add_field(name="Size", value=file_size, inline=True)
+            embed.add_field(name="Updated", value=update_time, inline=True)
+            embed.add_field(
+                name="Download",
+                value=f"[Click here to download]({SITE_URL}/download)",
+                inline=False
+            )
+            embed.set_footer(text=f"{COMPANY_NAME} // {GAME_NAME} Protocol")
+            
+            for guild_id, ch_id in channels.items():
+                try:
+                    ch = bot.get_channel(int(ch_id))
+                    if ch:
+                        await ch.send(embed=embed)
+                        print(f"Sent update notification to channel {ch_id} in guild {guild_id}")
+                    else:
+                        print(f"Could not find channel {ch_id}")
+                except Exception as e:
+                    print(f"Failed to send to channel {ch_id}: {e}")
         
         last_file_mtime = current_mtime
         
@@ -804,6 +829,60 @@ def setup_discord_bot():
         
         embed.set_footer(text=f"{COMPANY_NAME}")
         await ctx.send(embed=embed)
+    
+    @bot.command(name='setchannel')
+    @commands.has_permissions(administrator=True)
+    async def set_update_channel(ctx):
+        """Set this channel to receive game updates. Admin only."""
+        channels = load_discord_channels()
+        guild_id = str(ctx.guild.id)
+        channel_id = ctx.channel.id
+        
+        channels[guild_id] = channel_id
+        save_discord_channels(channels)
+        
+        embed = discord.Embed(
+            title="✅ UPDATE CHANNEL SET",
+            description=f"This channel will now receive **{GAME_NAME}** update notifications.",
+            color=0x00ff41
+        )
+        embed.add_field(name="Channel", value=f"<#{channel_id}>", inline=True)
+        embed.add_field(name="Server", value=ctx.guild.name, inline=True)
+        embed.set_footer(text="Use %removechannel to disable notifications")
+        
+        await ctx.send(embed=embed)
+        print(f"Update channel set: guild={guild_id}, channel={channel_id}")
+    
+    @set_update_channel.error
+    async def set_channel_error(ctx, error):
+        if isinstance(error, commands.MissingPermissions):
+            await ctx.send("❌ You need **Administrator** permission to use this command.")
+    
+    @bot.command(name='removechannel')
+    @commands.has_permissions(administrator=True)
+    async def remove_update_channel(ctx):
+        """Remove this server from update notifications. Admin only."""
+        channels = load_discord_channels()
+        guild_id = str(ctx.guild.id)
+        
+        if guild_id in channels:
+            del channels[guild_id]
+            save_discord_channels(channels)
+            
+            embed = discord.Embed(
+                title="🔕 UPDATES DISABLED",
+                description=f"This server will no longer receive **{GAME_NAME}** update notifications.",
+                color=0xff0040
+            )
+            await ctx.send(embed=embed)
+            print(f"Update channel removed: guild={guild_id}")
+        else:
+            await ctx.send("This server doesn't have update notifications enabled.")
+    
+    @remove_update_channel.error
+    async def remove_channel_error(ctx, error):
+        if isinstance(error, commands.MissingPermissions):
+            await ctx.send("❌ You need **Administrator** permission to use this command.")
     
     # Run bot in background thread
     def run_bot():
