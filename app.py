@@ -9,6 +9,11 @@ from pathlib import Path
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import os
+import secrets
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from datetime import datetime, timedelta
 
 # Load .env if exists
 env_path = Path(__file__).parent / '.env'
@@ -29,10 +34,121 @@ DOWNLOADS_DIR = Path(__file__).parent / 'downloads'
 ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@zon-productions.com')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'changeme')
 
+# Email config
+SMTP_EMAIL = os.environ.get('SMTP_EMAIL', '')  # your-gmail@gmail.com
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')  # Gmail App Password
+SMTP_SERVER = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+SITE_URL = os.environ.get('SITE_URL', 'https://zon-productions.com')
+
 # Game info
 GAME_NAME = "NightShadow"
 COMPANY_NAME = "Zon Productions"
-GAME_FILE = os.environ.get('GAME_FILE', 'NightShadow.zip')  # Filename in downloads folder
+GAME_FILE = os.environ.get('GAME_FILE', 'NightShadow.zip')
+
+
+# ============================================
+# EMAIL
+# ============================================
+
+def send_email(to_email, subject, html_body):
+    """Send an email via SMTP."""
+    if not SMTP_EMAIL or not SMTP_PASSWORD:
+        print(f"Email not configured. Would send to {to_email}: {subject}")
+        return False
+    
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = f"{COMPANY_NAME} <{SMTP_EMAIL}>"
+        msg['To'] = to_email
+        
+        msg.attach(MIMEText(html_body, 'html'))
+        
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_EMAIL, SMTP_PASSWORD)
+            server.sendmail(SMTP_EMAIL, to_email, msg.as_string())
+        
+        print(f"Email sent to {to_email}: {subject}")
+        return True
+    except Exception as e:
+        print(f"Email failed: {e}")
+        return False
+
+
+def send_welcome_email(email, username):
+    """Send welcome email after registration."""
+    subject = f"Welcome to {GAME_NAME} - Registration Received"
+    html = f"""
+    <div style="font-family: monospace; background: #000; color: #00ff41; padding: 20px;">
+        <h2 style="color: #00ff41;">> REGISTRATION_CONFIRMED</h2>
+        <p>Hello {username},</p>
+        <p>Your account has been created. You will receive another email once an admin approves your access.</p>
+        <p style="color: #008f11;">// {COMPANY_NAME}</p>
+    </div>
+    """
+    send_email(email, subject, html)
+
+
+def send_approved_email(email, username):
+    """Send email when user is approved."""
+    subject = f"{GAME_NAME} - Access Granted!"
+    html = f"""
+    <div style="font-family: monospace; background: #000; color: #00ff41; padding: 20px;">
+        <h2 style="color: #00ff41;">> ACCESS_GRANTED</h2>
+        <p>Hello {username},</p>
+        <p>Your account has been approved! You can now download {GAME_NAME}.</p>
+        <p><a href="{SITE_URL}/login" style="color: #00ff41;">Click here to login and download</a></p>
+        <p style="color: #008f11;">// {COMPANY_NAME}</p>
+    </div>
+    """
+    send_email(email, subject, html)
+
+
+def send_revoked_email(email, username):
+    """Send email when user access is revoked."""
+    subject = f"{GAME_NAME} - Access Revoked"
+    html = f"""
+    <div style="font-family: monospace; background: #000; color: #00ff41; padding: 20px;">
+        <h2 style="color: #ff0040;">> ACCESS_REVOKED</h2>
+        <p>Hello {username},</p>
+        <p>Your download access has been revoked. If you believe this is an error, please contact the admin.</p>
+        <p style="color: #008f11;">// {COMPANY_NAME}</p>
+    </div>
+    """
+    send_email(email, subject, html)
+
+
+def send_password_reset_email(email, username, token):
+    """Send password reset email."""
+    reset_link = f"{SITE_URL}/reset-password/{token}"
+    subject = f"{GAME_NAME} - Password Reset"
+    html = f"""
+    <div style="font-family: monospace; background: #000; color: #00ff41; padding: 20px;">
+        <h2 style="color: #00ff41;">> PASSWORD_RESET</h2>
+        <p>Hello {username},</p>
+        <p>Click the link below to reset your password. This link expires in 1 hour.</p>
+        <p><a href="{reset_link}" style="color: #00ff41;">{reset_link}</a></p>
+        <p>If you didn't request this, ignore this email.</p>
+        <p style="color: #008f11;">// {COMPANY_NAME}</p>
+    </div>
+    """
+    send_email(email, subject, html)
+
+
+def send_admin_notification(user_email, username):
+    """Notify admin of new registration."""
+    subject = f"New Registration: {username}"
+    html = f"""
+    <div style="font-family: monospace; background: #000; color: #00ff41; padding: 20px;">
+        <h2 style="color: #00ff41;">> NEW_REGISTRATION</h2>
+        <p>A new user has registered:</p>
+        <p>Username: {username}<br>Email: {user_email}</p>
+        <p><a href="{SITE_URL}/admin" style="color: #00ff41;">Go to Admin Panel</a></p>
+    </div>
+    """
+    send_email(ADMIN_EMAIL, subject, html)
 
 
 # ============================================
@@ -57,6 +173,15 @@ def init_db():
             username TEXT NOT NULL,
             approved INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    db.execute('''
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            token TEXT UNIQUE NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            used INTEGER DEFAULT 0
         )
     ''')
     db.commit()
@@ -168,6 +293,10 @@ def register():
         db.commit()
         db.close()
         
+        # Send emails
+        send_welcome_email(email, username)
+        send_admin_notification(email, username)
+        
         flash('Registration successful! Please wait for admin approval.', 'success')
         return redirect(url_for('login'))
     
@@ -221,6 +350,89 @@ def pending():
     if session.get('approved'):
         return redirect(url_for('download'))
     return render_template('pending.html',
+                          game_name=GAME_NAME,
+                          company_name=COMPANY_NAME)
+
+
+# ============================================
+# PASSWORD RESET
+# ============================================
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Request password reset."""
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        
+        db = get_db()
+        user = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        
+        if user:
+            # Generate token
+            token = secrets.token_urlsafe(32)
+            expires_at = datetime.now() + timedelta(hours=1)
+            
+            # Delete old tokens for this email
+            db.execute('DELETE FROM password_resets WHERE email = ?', (email,))
+            
+            # Save new token
+            db.execute('INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)',
+                      (email, token, expires_at))
+            db.commit()
+            
+            # Send email
+            send_password_reset_email(email, user['username'], token)
+        
+        db.close()
+        
+        # Always show success (don't reveal if email exists)
+        flash('If that email exists, a reset link has been sent.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('forgot_password.html',
+                          game_name=GAME_NAME,
+                          company_name=COMPANY_NAME)
+
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """Reset password with token."""
+    db = get_db()
+    reset = db.execute(
+        'SELECT * FROM password_resets WHERE token = ? AND used = 0 AND expires_at > ?',
+        (token, datetime.now())
+    ).fetchone()
+    
+    if not reset:
+        db.close()
+        flash('Invalid or expired reset link.', 'error')
+        return redirect(url_for('forgot_password'))
+    
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        confirm = request.form.get('confirm', '')
+        
+        if len(password) < 6:
+            flash('Password must be at least 6 characters.', 'error')
+        elif password != confirm:
+            flash('Passwords do not match.', 'error')
+        else:
+            # Update password
+            password_hash = generate_password_hash(password)
+            db.execute('UPDATE users SET password_hash = ? WHERE email = ?',
+                      (password_hash, reset['email']))
+            
+            # Mark token as used
+            db.execute('UPDATE password_resets SET used = 1 WHERE token = ?', (token,))
+            db.commit()
+            db.close()
+            
+            flash('Password updated! You can now login.', 'success')
+            return redirect(url_for('login'))
+    
+    db.close()
+    return render_template('reset_password.html',
+                          token=token,
                           game_name=GAME_NAME,
                           company_name=COMPANY_NAME)
 
@@ -328,8 +540,11 @@ def admin_dashboard():
 def approve_user(user_id):
     """Approve a user."""
     db = get_db()
-    db.execute('UPDATE users SET approved = 1 WHERE id = ?', (user_id,))
-    db.commit()
+    user = db.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+    if user:
+        db.execute('UPDATE users SET approved = 1 WHERE id = ?', (user_id,))
+        db.commit()
+        send_approved_email(user['email'], user['username'])
     db.close()
     flash('User approved!', 'success')
     return redirect(url_for('admin_dashboard'))
@@ -340,8 +555,11 @@ def approve_user(user_id):
 def revoke_user(user_id):
     """Revoke user access."""
     db = get_db()
-    db.execute('UPDATE users SET approved = 0 WHERE id = ?', (user_id,))
-    db.commit()
+    user = db.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+    if user:
+        db.execute('UPDATE users SET approved = 0 WHERE id = ?', (user_id,))
+        db.commit()
+        send_revoked_email(user['email'], user['username'])
     db.close()
     flash('User access revoked.', 'success')
     return redirect(url_for('admin_dashboard'))

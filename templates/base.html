@@ -42,13 +42,84 @@
         .container {
             max-width: 500px;
             margin: 0 auto;
-            padding: 40px 20px;
+            padding: 20px;
             position: relative;
             z-index: 1;
         }
         
         .container.wide {
             max-width: 900px;
+        }
+        
+        /* Mobile fixes */
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+                max-width: 100%;
+            }
+            
+            .card {
+                padding: 20px 15px;
+                margin: 0;
+                border-left: none;
+                border-right: none;
+            }
+            
+            .logo {
+                font-size: 1.8em;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            table {
+                font-size: 0.85em;
+            }
+            
+            th, td {
+                padding: 8px 5px;
+            }
+            
+            .actions {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .btn-small {
+                padding: 8px 12px;
+                font-size: 0.7em;
+                width: 100%;
+            }
+            
+            h1 {
+                font-size: 1.3em;
+                word-break: break-word;
+            }
+            
+            h2 {
+                font-size: 1.1em;
+            }
+            
+            .file-info {
+                padding: 15px 10px;
+                word-break: break-all;
+            }
+            
+            .file-size {
+                font-size: 1.5em;
+            }
+            
+            .download-btn {
+                padding: 15px 20px;
+                font-size: 1em;
+            }
+            
+            .user-info {
+                padding: 8px 15px;
+                font-size: 0.75em;
+            }
         }
         
         header {

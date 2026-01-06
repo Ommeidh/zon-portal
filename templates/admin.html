@@ -38,6 +38,7 @@
     <!-- Pending Users -->
     <h2>> PENDING_REQUESTS ({{ pending_users|length }})</h2>
     {% if pending_users %}
+    <div style="overflow-x: auto;">
     <table>
         <thead>
             <tr>
@@ -66,6 +67,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
     <p style="color: #008f11;">// NO PENDING REQUESTS</p>
     {% endif %}
@@ -73,6 +75,7 @@
     <!-- Approved Users -->
     <h2 style="margin-top: 40px;">> AUTHORIZED_USERS ({{ approved_users|length }})</h2>
     {% if approved_users %}
+    <div style="overflow-x: auto;">
     <table>
         <thead>
             <tr>
@@ -101,6 +104,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
     <p style="color: #008f11;">// NO AUTHORIZED USERS</p>
     {% endif %}
