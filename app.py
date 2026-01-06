@@ -37,12 +37,15 @@ except ImportError:
 # Load .env if exists
 env_path = Path(__file__).parent / '.env'
 if env_path.exists():
+    print(f"Loading .env from {env_path}")
     with open(env_path) as f:
         for line in f:
             line = line.strip()
             if line and not line.startswith('#') and '=' in line:
                 key, value = line.split('=', 1)
                 os.environ[key.strip()] = value.strip()
+else:
+    print(f"No .env file found at {env_path}")
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'change-this-in-production')
@@ -667,10 +670,21 @@ def setup_discord_bot():
     global discord_bot, last_file_mtime, discord_bot_started
     
     if discord_bot_started:
+        print("Discord bot already started, skipping...")
         return
     
-    if not DISCORD_AVAILABLE or not DISCORD_BOT_TOKEN:
-        print("Discord bot disabled (no token or discord.py not installed)")
+    # Re-read config in case it wasn't available at import time
+    bot_token = os.environ.get('DISCORD_BOT_TOKEN', '')
+    channel_id = os.environ.get('DISCORD_CHANNEL_ID', '')
+    
+    print(f"Discord setup - Token present: {bool(bot_token)}, Channel ID: {channel_id}")
+    
+    if not DISCORD_AVAILABLE:
+        print("Discord bot disabled - discord.py not installed")
+        return
+    
+    if not bot_token:
+        print("Discord bot disabled - no DISCORD_BOT_TOKEN in .env")
         return
     
     discord_bot_started = True
@@ -687,8 +701,11 @@ def setup_discord_bot():
     @bot.event
     async def on_ready():
         print(f"Discord bot connected as {bot.user}")
-        if DISCORD_CHANNEL_ID:
+        if channel_id:
             check_for_updates.start()
+            print(f"Update checker started for channel {channel_id}")
+        else:
+            print("No DISCORD_CHANNEL_ID set - update notifications disabled")
     
     @tasks.loop(minutes=5)
     async def check_for_updates():
@@ -703,10 +720,10 @@ def setup_discord_bot():
         if last_file_mtime is not None and current_mtime > last_file_mtime:
             # File has been updated!
             try:
-                channel_id = int(DISCORD_CHANNEL_ID)
-                channel = bot.get_channel(channel_id)
+                ch_id = int(channel_id)
+                ch = bot.get_channel(ch_id)
                 
-                if channel:
+                if ch:
                     file_size = get_file_size_str()
                     update_time = datetime.fromtimestamp(current_mtime).strftime('%Y-%m-%d %H:%M')
                     
@@ -725,10 +742,14 @@ def setup_discord_bot():
                     )
                     embed.set_footer(text=f"{COMPANY_NAME} // {GAME_NAME} Protocol")
                     
-                    await channel.send(embed=embed)
-                    print(f"Sent update notification to channel {channel_id}")
+                    await ch.send(embed=embed)
+                    print(f"Sent update notification to channel {ch_id}")
+                else:
+                    print(f"Could not find channel {ch_id}")
             except Exception as e:
                 print(f"Failed to send update notification: {e}")
+        
+        last_file_mtime = current_mtime
         
         last_file_mtime = current_mtime
     
@@ -787,13 +808,14 @@ def setup_discord_bot():
     # Run bot in background thread
     def run_bot():
         try:
-            bot.run(DISCORD_BOT_TOKEN)
+            print(f"Starting Discord bot...")
+            bot.run(bot_token)
         except Exception as e:
             print(f"Discord bot error: {e}")
     
     thread = threading.Thread(target=run_bot, daemon=True)
     thread.start()
-    print("Discord bot starting in background...")
+    print("Discord bot thread started")
 
 
 # ============================================
