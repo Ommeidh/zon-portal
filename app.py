@@ -15,6 +15,14 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 
+# Rate limiting
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+    RATE_LIMIT_AVAILABLE = True
+except ImportError:
+    RATE_LIMIT_AVAILABLE = False
+
 # Load .env if exists
 env_path = Path(__file__).parent / '.env'
 if env_path.exists():
@@ -28,11 +36,32 @@ if env_path.exists():
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'change-this-in-production')
 
+# Rate limiting setup
+if RATE_LIMIT_AVAILABLE:
+    limiter = Limiter(
+        key_func=get_remote_address,
+        app=app,
+        default_limits=["200 per day", "50 per hour"],
+        storage_uri="memory://"
+    )
+else:
+    limiter = None
+
+
+def rate_limit(limit_string):
+    """Rate limit decorator that works even if flask-limiter not installed."""
+    def decorator(f):
+        if limiter:
+            return limiter.limit(limit_string)(f)
+        return f
+    return decorator
+
 # Config
 DATABASE = Path(__file__).parent / 'users.db'
 DOWNLOADS_DIR = Path(__file__).parent / 'downloads'
 ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@zon-productions.com')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'changeme')
+ADMIN_URL = os.environ.get('ADMIN_URL', 'zp-control-8x7k')  # Secret admin path
 
 # Email config
 SMTP_EMAIL = os.environ.get('SMTP_EMAIL', '')  # your-gmail@gmail.com
@@ -223,17 +252,6 @@ def approved_required(f):
     return decorated
 
 
-def admin_required(f):
-    """Require admin login."""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not session.get('is_admin'):
-            flash('Admin access required.', 'error')
-            return redirect(url_for('admin_login'))
-        return f(*args, **kwargs)
-    return decorated
-
-
 # ============================================
 # PUBLIC ROUTES
 # ============================================
@@ -306,6 +324,7 @@ def register():
 
 
 @app.route('/login', methods=['GET', 'POST'])
+@rate_limit("5 per minute")
 def login():
     """User login."""
     if request.method == 'POST':
@@ -476,37 +495,57 @@ def download_file():
 # ADMIN ROUTES
 # ============================================
 
-@app.route('/admin/login', methods=['GET', 'POST'])
-def admin_login():
+@app.route(f'/<path:admin_path>/login', methods=['GET', 'POST'])
+def admin_login(admin_path):
     """Admin login."""
+    if admin_path != ADMIN_URL:
+        abort(404)
+    
     if request.method == 'POST':
+        # Rate limit check (5 attempts per minute)
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
         
         if email == ADMIN_EMAIL.lower() and password == ADMIN_PASSWORD:
             session['is_admin'] = True
             session['admin_email'] = email
-            return redirect(url_for('admin_dashboard'))
+            return redirect(url_for('admin_dashboard', admin_path=ADMIN_URL))
         
         flash('Invalid admin credentials', 'error')
     
     return render_template('admin_login.html',
                           game_name=GAME_NAME,
-                          company_name=COMPANY_NAME)
+                          company_name=COMPANY_NAME,
+                          admin_url=ADMIN_URL)
 
 
-@app.route('/admin/logout')
-def admin_logout():
+@app.route(f'/<path:admin_path>/logout')
+def admin_logout(admin_path):
     """Admin logout."""
+    if admin_path != ADMIN_URL:
+        abort(404)
     session.pop('is_admin', None)
     session.pop('admin_email', None)
     flash('Admin logged out.', 'success')
     return redirect(url_for('index'))
 
 
-@app.route('/admin')
+def admin_required(f):
+    """Require admin login."""
+    @wraps(f)
+    def decorated(admin_path, *args, **kwargs):
+        if admin_path != ADMIN_URL:
+            abort(404)
+        if not session.get('is_admin'):
+            flash('Admin access required.', 'error')
+            return redirect(url_for('admin_login', admin_path=ADMIN_URL))
+        return f(admin_path, *args, **kwargs)
+    return decorated
+
+
+@app.route(f'/<path:admin_path>')
 @admin_required
-def admin_dashboard():
+def admin_dashboard(admin_path):
     """Admin dashboard - manage users."""
     db = get_db()
     pending_users = db.execute(
@@ -532,12 +571,13 @@ def admin_dashboard():
                           approved_users=approved_users,
                           game_file=GAME_FILE,
                           file_exists=file_exists,
-                          file_size=file_size)
+                          file_size=file_size,
+                          admin_url=ADMIN_URL)
 
 
-@app.route('/admin/approve/<int:user_id>', methods=['POST'])
+@app.route(f'/<path:admin_path>/approve/<int:user_id>', methods=['POST'])
 @admin_required
-def approve_user(user_id):
+def approve_user(admin_path, user_id):
     """Approve a user."""
     db = get_db()
     user = db.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
@@ -547,12 +587,12 @@ def approve_user(user_id):
         send_approved_email(user['email'], user['username'])
     db.close()
     flash('User approved!', 'success')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('admin_dashboard', admin_path=ADMIN_URL))
 
 
-@app.route('/admin/revoke/<int:user_id>', methods=['POST'])
+@app.route(f'/<path:admin_path>/revoke/<int:user_id>', methods=['POST'])
 @admin_required
-def revoke_user(user_id):
+def revoke_user(admin_path, user_id):
     """Revoke user access."""
     db = get_db()
     user = db.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
@@ -562,19 +602,19 @@ def revoke_user(user_id):
         send_revoked_email(user['email'], user['username'])
     db.close()
     flash('User access revoked.', 'success')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('admin_dashboard', admin_path=ADMIN_URL))
 
 
-@app.route('/admin/delete/<int:user_id>', methods=['POST'])
+@app.route(f'/<path:admin_path>/delete/<int:user_id>', methods=['POST'])
 @admin_required
-def delete_user(user_id):
+def delete_user(admin_path, user_id):
     """Delete a user."""
     db = get_db()
     db.execute('DELETE FROM users WHERE id = ?', (user_id,))
     db.commit()
     db.close()
     flash('User deleted.', 'success')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('admin_dashboard', admin_path=ADMIN_URL))
 
 
 # ============================================

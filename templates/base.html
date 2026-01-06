@@ -464,7 +464,7 @@
     <div class="user-info">
         {% if session.get('is_admin') %}
             [ADMIN: {{ session.admin_email }}]
-            <a href="{{ url_for('admin_logout') }}">[LOGOUT]</a>
+            <a href="/{{ admin_url }}/logout">[LOGOUT]</a>
         {% else %}
             [USER: {{ session.username }}]
             <a href="{{ url_for('logout') }}">[LOGOUT]</a>

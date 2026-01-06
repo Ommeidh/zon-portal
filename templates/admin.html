@@ -55,10 +55,10 @@
                 <td>{{ user.email }}</td>
                 <td>{{ user.created_at }}</td>
                 <td class="actions">
-                    <form method="POST" action="{{ url_for('approve_user', user_id=user.id) }}" style="display:inline;">
+                    <form method="POST" action="/{{ admin_url }}/approve/{{ user.id }}" style="display:inline;">
                         <button type="submit" class="btn btn-success btn-small">[APPROVE]</button>
                     </form>
-                    <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" style="display:inline;" 
+                    <form method="POST" action="/{{ admin_url }}/delete/{{ user.id }}" style="display:inline;" 
                           onsubmit="return confirm('DELETE USER?')">
                         <button type="submit" class="btn btn-danger btn-small">[DELETE]</button>
                     </form>
@@ -92,10 +92,10 @@
                 <td>{{ user.email }}</td>
                 <td>{{ user.created_at }}</td>
                 <td class="actions">
-                    <form method="POST" action="{{ url_for('revoke_user', user_id=user.id) }}" style="display:inline;">
+                    <form method="POST" action="/{{ admin_url }}/revoke/{{ user.id }}" style="display:inline;">
                         <button type="submit" class="btn btn-secondary btn-small">[REVOKE]</button>
                     </form>
-                    <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" style="display:inline;"
+                    <form method="POST" action="/{{ admin_url }}/delete/{{ user.id }}" style="display:inline;"
                           onsubmit="return confirm('DELETE USER?')">
                         <button type="submit" class="btn btn-danger btn-small">[DELETE]</button>
                     </form>
