@@ -23,31 +23,21 @@
     
     <!-- Game File Status -->
     <h2>> SYSTEM_STATUS</h2>
-    <div class="file-info" style="text-align: left; border: 2px solid #008f11;">
-        <div style="display: grid; gap: 10px;">
-            <div style="border-bottom: 1px solid #005f11; padding-bottom: 8px;">
-                <span style="color: #008f11;">FILE:</span> 
-                <span style="color: #00ff41;">{{ game_file }}</span>
-            </div>
-            <div style="border-bottom: 1px solid #005f11; padding-bottom: 8px;">
-                <span style="color: #008f11;">STATUS:</span> 
-                {% if file_exists %}
-                    <span style="color: #00ff41;">● ONLINE ({{ file_size }})</span>
-                {% else %}
-                    <span style="color: #ff0040;">● OFFLINE</span>
-                {% endif %}
-            </div>
-            <div>
-                <span style="color: #008f11;">PATH:</span> 
-                <code>downloads/{{ game_file }}</code>
-            </div>
-        </div>
+    <div class="file-info" style="text-align: left;">
+        <p style="margin: 8px 0;"><span style="color: #008f11;">FILE:</span> {{ game_file }}</p>
+        <p style="margin: 8px 0;"><span style="color: #008f11;">STATUS:</span> 
+            {% if file_exists %}
+                <span style="color: #00ff41;">● ONLINE ({{ file_size }})</span>
+            {% else %}
+                <span style="color: #ff0040;">● OFFLINE</span>
+            {% endif %}
+        </p>
+        <p style="margin: 8px 0;"><span style="color: #008f11;">PATH:</span> <code>downloads/{{ game_file }}</code></p>
     </div>
     
     <!-- Pending Users -->
     <h2>> PENDING_REQUESTS ({{ pending_users|length }})</h2>
     {% if pending_users %}
-    <div style="overflow-x: auto;">
     <table>
         <thead>
             <tr>
@@ -76,7 +66,6 @@
             {% endfor %}
         </tbody>
     </table>
-    </div>
     {% else %}
     <p style="color: #008f11;">// NO PENDING REQUESTS</p>
     {% endif %}
@@ -84,7 +73,6 @@
     <!-- Approved Users -->
     <h2 style="margin-top: 40px;">> AUTHORIZED_USERS ({{ approved_users|length }})</h2>
     {% if approved_users %}
-    <div style="overflow-x: auto;">
     <table>
         <thead>
             <tr>
@@ -113,7 +101,6 @@
             {% endfor %}
         </tbody>
     </table>
-    </div>
     {% else %}
     <p style="color: #008f11;">// NO AUTHORIZED USERS</p>
     {% endif %}
