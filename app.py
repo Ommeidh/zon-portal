@@ -14,6 +14,8 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
+import threading
+import time
 
 # Rate limiting
 try:
@@ -22,6 +24,15 @@ try:
     RATE_LIMIT_AVAILABLE = True
 except ImportError:
     RATE_LIMIT_AVAILABLE = False
+
+# Discord bot
+try:
+    import discord
+    from discord.ext import commands, tasks
+    DISCORD_AVAILABLE = True
+except ImportError:
+    DISCORD_AVAILABLE = False
+    print("discord.py not installed - bot disabled")
 
 # Load .env if exists
 env_path = Path(__file__).parent / '.env'
@@ -70,10 +81,17 @@ SMTP_SERVER = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
 SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
 SITE_URL = os.environ.get('SITE_URL', 'https://zon-productions.com')
 
+# Discord bot config
+DISCORD_BOT_TOKEN = os.environ.get('DISCORD_BOT_TOKEN', '')
+DISCORD_CHANNEL_ID = os.environ.get('DISCORD_CHANNEL_ID', '')  # Channel ID for update announcements
+
 # Game info
 GAME_NAME = "NightShadow"
 COMPANY_NAME = "Zon Productions"
 GAME_FILE = os.environ.get('GAME_FILE', 'NightShadow.zip')
+
+# Track file modification time
+last_file_mtime = None
 
 
 # ============================================
@@ -618,8 +636,172 @@ def delete_user(admin_path, user_id):
 
 
 # ============================================
+# DISCORD BOT
+# ============================================
+
+discord_bot = None
+discord_bot_started = False
+
+def get_file_mtime():
+    """Get modification time of game file."""
+    game_path = DOWNLOADS_DIR / GAME_FILE
+    if game_path.exists():
+        return game_path.stat().st_mtime
+    return None
+
+
+def get_file_size_str():
+    """Get human-readable file size."""
+    game_path = DOWNLOADS_DIR / GAME_FILE
+    if game_path.exists():
+        size_bytes = game_path.stat().st_size
+        if size_bytes > 1024**3:
+            return f"{size_bytes / (1024**3):.2f} GB"
+        else:
+            return f"{size_bytes / (1024**2):.0f} MB"
+    return "N/A"
+
+
+def setup_discord_bot():
+    """Set up and run Discord bot."""
+    global discord_bot, last_file_mtime, discord_bot_started
+    
+    if discord_bot_started:
+        return
+    
+    if not DISCORD_AVAILABLE or not DISCORD_BOT_TOKEN:
+        print("Discord bot disabled (no token or discord.py not installed)")
+        return
+    
+    discord_bot_started = True
+    
+    # Initialize last known mtime
+    last_file_mtime = get_file_mtime()
+    
+    intents = discord.Intents.default()
+    intents.message_content = True
+    
+    bot = commands.Bot(command_prefix='%', intents=intents)
+    discord_bot = bot
+    
+    @bot.event
+    async def on_ready():
+        print(f"Discord bot connected as {bot.user}")
+        if DISCORD_CHANNEL_ID:
+            check_for_updates.start()
+    
+    @tasks.loop(minutes=5)
+    async def check_for_updates():
+        """Check if game file has been updated."""
+        global last_file_mtime
+        
+        current_mtime = get_file_mtime()
+        
+        if current_mtime is None:
+            return
+        
+        if last_file_mtime is not None and current_mtime > last_file_mtime:
+            # File has been updated!
+            try:
+                channel_id = int(DISCORD_CHANNEL_ID)
+                channel = bot.get_channel(channel_id)
+                
+                if channel:
+                    file_size = get_file_size_str()
+                    update_time = datetime.fromtimestamp(current_mtime).strftime('%Y-%m-%d %H:%M')
+                    
+                    embed = discord.Embed(
+                        title="🎮 NEW UPDATE AVAILABLE",
+                        description=f"**{GAME_NAME}** has been updated!",
+                        color=0x00ff41
+                    )
+                    embed.add_field(name="File", value=GAME_FILE, inline=True)
+                    embed.add_field(name="Size", value=file_size, inline=True)
+                    embed.add_field(name="Updated", value=update_time, inline=True)
+                    embed.add_field(
+                        name="Download",
+                        value=f"[Click here to download]({SITE_URL}/download)",
+                        inline=False
+                    )
+                    embed.set_footer(text=f"{COMPANY_NAME} // {GAME_NAME} Protocol")
+                    
+                    await channel.send(embed=embed)
+                    print(f"Sent update notification to channel {channel_id}")
+            except Exception as e:
+                print(f"Failed to send update notification: {e}")
+        
+        last_file_mtime = current_mtime
+    
+    @bot.command(name='NS', aliases=['ns', 'nightshadow'])
+    async def nightshadow_info(ctx):
+        """Show game info and download status."""
+        game_path = DOWNLOADS_DIR / GAME_FILE
+        
+        if game_path.exists():
+            file_size = get_file_size_str()
+            mtime = datetime.fromtimestamp(game_path.stat().st_mtime).strftime('%Y-%m-%d %H:%M')
+            status = "🟢 ONLINE"
+        else:
+            file_size = "N/A"
+            mtime = "N/A"
+            status = "🔴 OFFLINE"
+        
+        embed = discord.Embed(
+            title=f">> {GAME_NAME.upper()} PROTOCOL",
+            description="// ASYMMETRICAL MULTIPLAYER STEALTH COMBAT",
+            color=0x00ff41
+        )
+        embed.add_field(name="Status", value=status, inline=True)
+        embed.add_field(name="File Size", value=file_size, inline=True)
+        embed.add_field(name="Last Updated", value=mtime, inline=True)
+        embed.add_field(
+            name="Download Portal",
+            value=f"[{SITE_URL}]({SITE_URL})",
+            inline=False
+        )
+        embed.set_footer(text=f"{COMPANY_NAME}")
+        
+        await ctx.send(embed=embed)
+    
+    @bot.command(name='status')
+    async def server_status(ctx):
+        """Show download server status."""
+        game_path = DOWNLOADS_DIR / GAME_FILE
+        
+        embed = discord.Embed(
+            title=">> SYSTEM_STATUS",
+            color=0x00ff41
+        )
+        
+        if game_path.exists():
+            embed.add_field(name="Download Server", value="🟢 ONLINE", inline=False)
+            embed.add_field(name="File", value=GAME_FILE, inline=True)
+            embed.add_field(name="Size", value=get_file_size_str(), inline=True)
+        else:
+            embed.add_field(name="Download Server", value="🔴 OFFLINE", inline=False)
+            embed.add_field(name="File", value="Not available", inline=True)
+        
+        embed.set_footer(text=f"{COMPANY_NAME}")
+        await ctx.send(embed=embed)
+    
+    # Run bot in background thread
+    def run_bot():
+        try:
+            bot.run(DISCORD_BOT_TOKEN)
+        except Exception as e:
+            print(f"Discord bot error: {e}")
+    
+    thread = threading.Thread(target=run_bot, daemon=True)
+    thread.start()
+    print("Discord bot starting in background...")
+
+
+# ============================================
 # MAIN
 # ============================================
+
+# Start Discord bot (runs once, even with multiple gunicorn workers)
+setup_discord_bot()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
