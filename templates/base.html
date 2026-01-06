@@ -345,25 +345,15 @@
         
         table {
             width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
+            border-collapse: collapse;
             margin-top: 15px;
-            border: 1px solid #008f11;
+            border: 2px solid #008f11;
         }
         
         th, td {
             padding: 12px;
             text-align: left;
-            border-bottom: 1px solid #005f11;
-            border-right: 1px solid #003f0a;
-        }
-        
-        th:last-child, td:last-child {
-            border-right: none;
-        }
-        
-        tr:last-child td {
-            border-bottom: none;
+            border: 1px solid #008f11;
         }
         
         th {
@@ -372,16 +362,17 @@
             font-size: 0.8em;
             text-transform: uppercase;
             letter-spacing: 1px;
-            background: rgba(0, 143, 17, 0.1);
+            background: rgba(0, 143, 17, 0.15);
             border-bottom: 2px solid #008f11;
         }
         
         td {
             color: #00ff41;
+            background: rgba(0, 0, 0, 0.3);
         }
         
         tr:hover td {
-            background: rgba(0, 255, 65, 0.05);
+            background: rgba(0, 255, 65, 0.08);
         }
         
         .actions {
