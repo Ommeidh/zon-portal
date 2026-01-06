@@ -23,16 +23,25 @@
     
     <!-- Game File Status -->
     <h2>> SYSTEM_STATUS</h2>
-    <div class="file-info" style="text-align: left;">
-        <strong style="color: #008f11;">FILE:</strong> {{ game_file }}<br>
-        <strong style="color: #008f11;">STATUS:</strong> 
-        {% if file_exists %}
-            <span style="color: #00ff41;">● ONLINE ({{ file_size }})</span>
-        {% else %}
-            <span style="color: #ff0040;">● OFFLINE</span>
-        {% endif %}
-        <br>
-        <strong style="color: #008f11;">PATH:</strong> <code>downloads/{{ game_file }}</code>
+    <div class="file-info" style="text-align: left; border: 2px solid #008f11;">
+        <div style="display: grid; gap: 10px;">
+            <div style="border-bottom: 1px solid #005f11; padding-bottom: 8px;">
+                <span style="color: #008f11;">FILE:</span> 
+                <span style="color: #00ff41;">{{ game_file }}</span>
+            </div>
+            <div style="border-bottom: 1px solid #005f11; padding-bottom: 8px;">
+                <span style="color: #008f11;">STATUS:</span> 
+                {% if file_exists %}
+                    <span style="color: #00ff41;">● ONLINE ({{ file_size }})</span>
+                {% else %}
+                    <span style="color: #ff0040;">● OFFLINE</span>
+                {% endif %}
+            </div>
+            <div>
+                <span style="color: #008f11;">PATH:</span> 
+                <code>downloads/{{ game_file }}</code>
+            </div>
+        </div>
     </div>
     
     <!-- Pending Users -->

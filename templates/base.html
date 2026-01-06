@@ -76,10 +76,13 @@
             
             table {
                 font-size: 0.85em;
+                display: block;
+                overflow-x: auto;
             }
             
             th, td {
                 padding: 8px 5px;
+                white-space: nowrap;
             }
             
             .actions {
@@ -119,6 +122,14 @@
             .user-info {
                 padding: 8px 15px;
                 font-size: 0.75em;
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+                gap: 5px;
+            }
+            
+            .user-info a {
+                margin-left: 10px;
             }
         }
         
@@ -149,7 +160,7 @@
         
         .card {
             background: rgba(0, 20, 0, 0.8);
-            border: 1px solid #00ff41;
+            border: 2px solid #00ff41;
             border-radius: 0;
             padding: 30px;
             box-shadow: 
@@ -165,8 +176,9 @@
         
         h2 {
             font-size: 1.3em;
-            border-bottom: 1px solid #008f11;
+            border-bottom: 2px solid #008f11;
             padding-bottom: 10px;
+            margin-top: 30px;
         }
         
         .form-group {
@@ -333,14 +345,25 @@
         
         table {
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
             margin-top: 15px;
+            border: 1px solid #008f11;
         }
         
         th, td {
             padding: 12px;
             text-align: left;
-            border-bottom: 1px solid #008f11;
+            border-bottom: 1px solid #005f11;
+            border-right: 1px solid #003f0a;
+        }
+        
+        th:last-child, td:last-child {
+            border-right: none;
+        }
+        
+        tr:last-child td {
+            border-bottom: none;
         }
         
         th {
@@ -349,10 +372,16 @@
             font-size: 0.8em;
             text-transform: uppercase;
             letter-spacing: 1px;
+            background: rgba(0, 143, 17, 0.1);
+            border-bottom: 2px solid #008f11;
         }
         
         td {
             color: #00ff41;
+        }
+        
+        tr:hover td {
+            background: rgba(0, 255, 65, 0.05);
         }
         
         .actions {
@@ -362,7 +391,7 @@
         
         .file-info {
             background: rgba(0, 0, 0, 0.5);
-            border: 1px solid #008f11;
+            border: 2px solid #008f11;
             padding: 20px;
             margin: 20px 0;
             text-align: center;
@@ -397,7 +426,7 @@
         .stat {
             flex: 1;
             background: rgba(0, 0, 0, 0.5);
-            border: 1px solid #008f11;
+            border: 2px solid #008f11;
             padding: 20px;
             text-align: center;
         }
@@ -414,6 +443,9 @@
             font-size: 0.8em;
             text-transform: uppercase;
             letter-spacing: 1px;
+            margin-top: 5px;
+            border-top: 1px solid #005f11;
+            padding-top: 10px;
         }
         
         code {
@@ -467,7 +499,10 @@
             <a href="/{{ admin_url }}/logout">[LOGOUT]</a>
         {% else %}
             [USER: {{ session.username }}]
-            <a href="{{ url_for('logout') }}">[LOGOUT]</a>
+            {% if session.get('approved') %}
+            <a href="/download">[DOWNLOAD]</a>
+            {% endif %}
+            <a href="/logout">[LOGOUT]</a>
         {% endif %}
     </div>
     {% endif %}

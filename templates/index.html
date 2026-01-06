@@ -22,8 +22,14 @@
     </p>
     
     <div style="display: flex; gap: 15px; justify-content: center;">
-        <a href="{{ url_for('login') }}" class="btn btn-primary" style="width: auto;">[LOGIN]</a>
-        <a href="{{ url_for('register') }}" class="btn btn-secondary">[REGISTER]</a>
+        {% if session.get('user_id') and session.get('approved') %}
+            <a href="{{ url_for('download') }}" class="btn btn-primary" style="width: auto;">[DOWNLOAD]</a>
+        {% elif session.get('user_id') %}
+            <a href="{{ url_for('pending') }}" class="btn btn-secondary" style="width: auto;">[PENDING APPROVAL]</a>
+        {% else %}
+            <a href="{{ url_for('login') }}" class="btn btn-primary" style="width: auto;">[LOGIN]</a>
+            <a href="{{ url_for('register') }}" class="btn btn-secondary">[REGISTER]</a>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
