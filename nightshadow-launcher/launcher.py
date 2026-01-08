@@ -34,6 +34,75 @@ COLORS = {
 
 class MatrixStyle:
     """Apply Matrix theme to widgets."""
+
+    @staticmethod
+    def configure_root(root):
+        root.configure(bg=COLORS['bg'])
+
+    @staticmethod
+    def label(parent, text="", **kwargs):
+        kwargs.setdefault("bg", COLORS["bg"])
+        kwargs.setdefault("fg", COLORS["fg"])
+        kwargs.setdefault("font", ("Consolas", 10))
+        return tk.Label(parent, text=text, **kwargs)
+
+    @staticmethod
+    def title(parent, text="", **kwargs):
+        kwargs.setdefault("bg", COLORS["bg"])
+        kwargs.setdefault("fg", COLORS["fg_bright"])
+        kwargs.setdefault("font", ("Consolas", 16, "bold"))
+        return tk.Label(parent, text=text, **kwargs)
+
+    @staticmethod
+    def subtitle(parent, text="", **kwargs):
+        kwargs.setdefault("bg", COLORS["bg"])
+        kwargs.setdefault("fg", COLORS["fg_dim"])
+        kwargs.setdefault("font", ("Consolas", 9))
+        return tk.Label(parent, text=text, **kwargs)
+
+    @staticmethod
+    def entry(parent, show=None, **kwargs):
+        kwargs.setdefault("bg", COLORS["entry_bg"])
+        kwargs.setdefault("fg", COLORS["fg"])
+        kwargs.setdefault("insertbackground", COLORS["fg"])
+        kwargs.setdefault("font", ("Consolas", 11))
+        kwargs.setdefault("relief", "flat")
+        kwargs.setdefault("highlightthickness", 1)
+        kwargs.setdefault("highlightcolor", COLORS["fg"])
+        kwargs.setdefault("highlightbackground", COLORS["fg_dim"])
+        return tk.Entry(parent, show=show, **kwargs)
+
+    @staticmethod
+    def button(parent, text="", command=None, **kwargs):
+        kwargs.setdefault("bg", COLORS["button_bg"])
+        kwargs.setdefault("fg", COLORS["fg"])
+        kwargs.setdefault("activebackground", COLORS["button_hover"])
+        kwargs.setdefault("activeforeground", COLORS["fg_bright"])
+        kwargs.setdefault("font", ("Consolas", 10, "bold"))
+        kwargs.setdefault("relief", "flat")
+        kwargs.setdefault("cursor", "hand2")
+        kwargs.setdefault("padx", 20)
+        kwargs.setdefault("pady", 8)
+        kwargs.setdefault("highlightthickness", 1)
+        kwargs.setdefault("highlightcolor", COLORS["fg"])
+        kwargs.setdefault("highlightbackground", COLORS["fg_dim"])
+
+        btn = tk.Button(parent, text=text, command=command, **kwargs)
+
+        def on_enter(e):
+            btn.configure(bg=COLORS["button_hover"])
+        def on_leave(e):
+            btn.configure(bg=COLORS["button_bg"])
+
+        btn.bind("<Enter>", on_enter)
+        btn.bind("<Leave>", on_leave)
+        return btn
+
+    @staticmethod
+    def frame(parent, **kwargs):
+        kwargs.setdefault("bg", COLORS["bg"])
+        return tk.Frame(parent, **kwargs)
+    """Apply Matrix theme to widgets."""
     
     @staticmethod
     def configure_root(root):
@@ -41,14 +110,11 @@ class MatrixStyle:
         
     @staticmethod
     def label(parent, text="", **kwargs):
-        return tk.Label(
-            parent,
-            text=text,
-            bg=COLORS['bg'],
-            fg=COLORS['fg'],
-            font=('Consolas', 10),
-            **kwargs
-        )
+        fg = kwargs.pop("fg", COLORS["fg"])        # take fg out of kwargs if present
+        bg = kwargs.pop("bg", COLORS["bg"])        # same for bg
+        font = kwargs.pop("font", ("Consolas", 10))
+        return tk.Label(parent, text=text, fg=fg, bg=bg, font=font, **kwargs)
+    
     
     @staticmethod
     def title(parent, text="", **kwargs):
@@ -270,7 +336,12 @@ class NightShadowLauncher:
                 response = requests.post(
                     f"{API_URL}/api/login",
                     json={'email': email, 'password': password},
-                    timeout=10
+                    timeout=10,
+                    print("login status:", response.status_code)
+                    print("content-type:", response.headers.get("Content-Type"))
+                    print("len:", len(response.content))
+                    print("head:", response.text[:200])
+
                 )
                 
                 data = response.json()
