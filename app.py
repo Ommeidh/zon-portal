@@ -379,6 +379,7 @@ def logout():
     """User logout."""
     session.clear()
     flash('You have been logged out.', 'success')
+    return redirect(url_for('login'))
 
 
 @app.route('/pending')
@@ -546,7 +547,7 @@ def admin_logout(admin_path):
     session.pop('is_admin', None)
     session.pop('admin_email', None)
     flash('Admin logged out.', 'success')
-    return redirect(url_for('index'))
+    return redirect(url_for('login'))
 
 
 def admin_required(f):
