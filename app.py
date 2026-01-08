@@ -379,7 +379,7 @@ def logout():
     """User logout."""
     session.clear()
     flash('You have been logged out.', 'success')
-    return redirect(url_for('index'))
+    return redirect(url_for('pending'))
 
 
 @app.route('/pending')
@@ -635,6 +635,93 @@ def delete_user(admin_path, user_id):
     db.close()
     flash('User deleted.', 'success')
     return redirect(url_for('admin_dashboard', admin_path=ADMIN_URL))
+
+
+# ============================================
+# API ENDPOINTS (for launcher)
+# ============================================
+
+@app.route('/api/login', methods=['POST'])
+@rate_limit("10 per minute")
+def api_login():
+    """API login for launcher."""
+    data = request.get_json() or {}
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '')
+    
+    if not email or not password:
+        return {'success': False, 'error': 'Email and password required'}, 400
+    
+    db = get_db()
+    user = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+    db.close()
+    
+    if user and check_password_hash(user['password_hash'], password):
+        if user['approved']:
+            # Generate a simple token (in production, use proper JWT)
+            token = secrets.token_urlsafe(32)
+            return {
+                'success': True,
+                'token': token,
+                'username': user['username'],
+                'approved': True
+            }
+        else:
+            return {
+                'success': True,
+                'approved': False,
+                'error': 'Account pending approval'
+            }
+    
+    return {'success': False, 'error': 'Invalid credentials'}, 401
+
+
+@app.route('/api/game-info', methods=['GET'])
+def api_game_info():
+    """Get game file info for launcher."""
+    game_path = DOWNLOADS_DIR / GAME_FILE
+    
+    if game_path.exists():
+        size_bytes = game_path.stat().st_size
+        mtime = game_path.stat().st_mtime
+        return {
+            'available': True,
+            'filename': GAME_FILE,
+            'size_bytes': size_bytes,
+            'size_formatted': f"{size_bytes / (1024**3):.2f} GB" if size_bytes > 1024**3 else f"{size_bytes / (1024**2):.0f} MB",
+            'last_updated': datetime.fromtimestamp(mtime).isoformat()
+        }
+    
+    return {'available': False}
+
+
+@app.route('/api/download', methods=['POST'])
+@rate_limit("5 per hour")
+def api_download():
+    """API download for launcher - re-authenticates."""
+    data = request.get_json() or {}
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '')
+    
+    if not email or not password:
+        return {'success': False, 'error': 'Credentials required'}, 400
+    
+    db = get_db()
+    user = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+    db.close()
+    
+    if not user or not check_password_hash(user['password_hash'], password):
+        return {'success': False, 'error': 'Invalid credentials'}, 401
+    
+    if not user['approved']:
+        return {'success': False, 'error': 'Account not approved'}, 403
+    
+    # Serve the file
+    game_path = DOWNLOADS_DIR / GAME_FILE
+    if not game_path.exists():
+        return {'success': False, 'error': 'Game file not available'}, 404
+    
+    return send_from_directory(DOWNLOADS_DIR, GAME_FILE, as_attachment=True)
 
 
 # ============================================
