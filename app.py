@@ -379,7 +379,6 @@ def logout():
     """User logout."""
     session.clear()
     flash('You have been logged out.', 'success')
-    return redirect(url_for('pending'))
 
 
 @app.route('/pending')
